@@ -1,0 +1,25 @@
+{
+  "name": "profit-calculator",
+  "version": "2.0.0",
+  "description": "利润成本计算分析系统 - 企业财务分析工具，支持收支管理、盈亏平衡分析、预算规划、情景模拟",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "finance",
+    "profit",
+    "cost",
+    "analysis",
+    "break-even",
+    "budget",
+    "accounting"
+  ],
+  "author": "Reo622",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5"
+  }
+}
