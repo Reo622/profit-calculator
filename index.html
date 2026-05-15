@@ -990,6 +990,8 @@ function clearAll() {
   if (confirm('确定清空所有数据？此操作不可恢复。')) {
     data={income:[],expense:[],templates:[],goals:[],scenarios:[]};
     save();
+    // 同时重置盈亏平衡输入
+    ['beFixedCost','bePrice','beVarCost','beTargetProfit'].forEach(id => document.getElementById(id).value = '0');
     refreshAll();
     alert('已清空，从零开始！');
   }
