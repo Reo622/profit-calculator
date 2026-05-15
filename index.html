@@ -263,9 +263,12 @@
     <h1>利润成本计算器</h1>
   </div>
   <div class="header-actions">
+    <span id="saveIndicator" style="font-size:11px;color:var(--muted);margin-right:10px;display:inline-flex;align-items:center;gap:4px;">
+      <span style="width:6px;height:6px;background:var(--profit);border-radius:50%;display:inline-block;"></span> 已自动保存
+    </span>
     <button class="btn btn-sm" onclick="exportCSV()">导出 CSV</button>
     <button class="btn btn-sm" onclick="importCSV()">导入 CSV</button>
-    <button class="btn btn-sm" onclick="backupData()">备份数据</button>
+    <button class="btn btn-sm" onclick="backupData()">💾 备份</button>
   </div>
 </div>
 
@@ -460,7 +463,16 @@ function loadData() {
   } catch { return { income: [], expense: [], templates: [], goals: [], scenarios: [] }; }
 }
 let data = loadData();
-function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); markSaved(); }
+function markSaved() {
+  const now = new Date();
+  const ts = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+':'+now.getSeconds().toString().padStart(2,'0');
+  const el = document.getElementById('saveIndicator');
+  if (el) el.innerHTML = '<span style="width:6px;height:6px;background:var(--profit);border-radius:50%;display:inline-block;"></span> 已保存 '+ts;
+}
+window.addEventListener('beforeunload', () => { save(); });
+// 定时自动保存（每30秒），防止意外关闭丢失
+setInterval(() => { save(); }, 30000);
 
 // ========== HELPERS ==========
 function calcTotals() {
