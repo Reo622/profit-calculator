@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💰 利润成本计算分析系统</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --profit: #22c55e;
+    --loss: #ef4444;
+    --accent: #3b82f6;
+    --warn: #f59e0b;
+    --income: #06b6d4;
+    --expense: #f97316;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #1e3a5f, #0f172a);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header h1 { font-size: 22px; font-weight: 700; }
+  .header .subtitle { color: var(--muted); font-size: 13px; }
+  .header-actions { display: flex; gap: 10px; }
+  .btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: #64748b; background: #334155; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); }
+  .btn-primary:hover { background: #2563eb; }
+  .btn-danger { background: var(--loss); border-color: var(--loss); }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-success { background: var(--profit); border-color: var(--profit); color: #000; }
+  .btn-success:hover { background: #16a34a; }
+
+  /* Layout */
+  .container { max-width: 1300px; margin: 0 auto; padding: 24px; }
+
+  /* Summary Cards */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .summary-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .summary-card .icon { font-size: 28px; margin-bottom: 8px; }
+  .summary-card .label { color: var(--muted); font-size: 13px; }
+  .summary-card .value { font-size: 28px; font-weight: 700; margin-top: 4px; }
+  .summary-card .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .summary-card.income { border-left: 3px solid var(--income); }
+  .summary-card.expense { border-left: 3px solid var(--expense); }
+  .summary-card.profit { border-left: 3px solid var(--profit); }
+  .summary-card.margin { border-left: 3px solid var(--accent); }
+  .summary-card::after {
+    content: '';
+    position: absolute;
+    top: -30px;
+    right: -30px;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    opacity: 0.05;
+  }
+  .summary-card.income::after { background: var(--income); }
+  .summary-card.expense::after { background: var(--expense); }
+  .summary-card.profit::after { background: var(--profit); }
+  .summary-card.margin::after { background: var(--accent); }
+
+  /* Main content */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .panel h2 {
+    font-size: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel h2 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot.income-dot { background: var(--income); }
+  .dot.expense-dot { background: var(--expense); }
+
+  /* Form */
+  .form-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .form-row input, .form-row select {
+    flex: 1;
+    min-width: 100px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #0f172a;
+    color: var(--text);
+    font-size: 14px;
+  }
+  .form-row input:focus, .form-row select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .form-row input[type="number"] { max-width: 160px; }
+  .form-row select { max-width: 150px; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; max-height: 300px; overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 12px; border-bottom: 2px solid var(--border); color: var(--muted); font-weight: 600; position: sticky; top: 0; background: var(--card); }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .tag-income { background: rgba(6,182,212,0.2); color: var(--income); }
+  .tag-expense { background: rgba(249,115,22,0.2); color: var(--expense); }
+  .delete-btn {
+    background: none;
+    border: none;
+    color: var(--loss);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .delete-btn:hover { background: rgba(239,68,68,0.15); }
+
+  /* Charts */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .chart-container {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .chart-container h3 { font-size: 14px; color: var(--muted); margin-bottom: 12px; }
+  canvas { width: 100%; max-height: 250px; }
+
+  /* Suggestions */
+  .suggestions-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .suggestions-panel h2 { font-size: 18px; margin-bottom: 16px; }
+  .suggestion {
+    background: #0f172a;
+    border-left: 4px solid var(--warn);
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    border-radius: 0 8px 8px 0;
+  }
+  .suggestion .s-title { font-weight: 600; color: var(--warn); margin-bottom: 4px; }
+  .suggestion .s-detail { font-size: 13px; color: var(--muted); }
+  .suggestion .s-impact { font-size: 12px; color: var(--profit); margin-top: 4px; }
+  .suggestion.critical { border-left-color: var(--loss); }
+  .suggestion.critical .s-title { color: var(--loss); }
+  .suggestion.positive { border-left-color: var(--profit); }
+  .suggestion.positive .s-title { color: var(--profit); }
+  .empty-state { text-align: center; color: var(--muted); padding: 40px; }
+  .empty-state .big { font-size: 48px; margin-bottom: 12px; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .modal h2 { margin-bottom: 16px; }
+  .modal .close {
+    float: right;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 24px;
+    cursor: pointer;
+  }
+  .modal .close:hover { color: var(--text); }
+
+  .profit-positive { color: var(--profit); }
+  .profit-negative { color: var(--loss); }
+
+  @media (max-width: 900px) {
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .main-grid, .charts-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>💰 利润成本计算分析系统</h1>
+    <div class="subtitle">Profit & Cost Analysis Tool</div>
+  </div>
+  <div class="header-actions">
+    <button class="btn" onclick="resetData()">🔄 重置数据</button>
+    <button class="btn btn-success" onclick="showReport()">📊 生成分析报告</button>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Summary Cards -->
+  <div class="summary-grid">
+    <div class="summary-card income">
+      <div class="icon">📈</div>
+      <div class="label">总收入</div>
+      <div class="value" id="totalIncome">¥0</div>
+      <div class="sub" id="incomeCount">0 条记录</div>
+    </div>
+    <div class="summary-card expense">
+      <div class="icon">📉</div>
+      <div class="label">总支出</div>
+      <div class="value" id="totalExpense">¥0</div>
+      <div class="sub" id="expenseCount">0 条记录</div>
+    </div>
+    <div class="summary-card profit">
+      <div class="icon">💎</div>
+      <div class="label">净利润</div>
+      <div class="value" id="netProfit">¥0</div>
+      <div class="sub" id="profitTrend">--</div>
+    </div>
+    <div class="summary-card margin">
+      <div class="icon">📐</div>
+      <div class="label">利润率</div>
+      <div class="value" id="profitMargin">0%</div>
+      <div class="sub" id="marginHealth">--</div>
+    </div>
+  </div>
+
+  <!-- Input Forms -->
+  <div class="main-grid">
+    <div class="panel">
+      <h2><span class="dot income-dot"></span> 添加收入</h2>
+      <div class="form-row">
+        <input type="text" id="incomeDesc" placeholder="收入描述（如：产品A销售）">
+        <input type="number" id="incomeAmount" placeholder="金额" min="0" step="0.01">
+        <select id="incomeCat">
+          <option value="">选择类别</option>
+          <option value="销售">销售收入</option>
+          <option value="服务">服务收入</option>
+          <option value="投资">投资收益</option>
+          <option value="其他">其他收入</option>
+        </select>
+        <button class="btn btn-primary" onclick="addIncome()">+ 添加</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2><span class="dot expense-dot"></span> 添加支出</h2>
+      <div class="form-row">
+        <input type="text" id="expenseDesc" placeholder="支出描述（如：原材料采购）">
+        <input type="number" id="expenseAmount" placeholder="金额" min="0" step="0.01">
+        <select id="expenseCat">
+          <option value="">选择类别</option>
+          <option value="原材料">原材料成本</option>
+          <option value="人力">人力成本</option>
+          <option value="租金">场地租赁</option>
+          <option value="营销">营销推广</option>
+          <option value="物流">物流运输</option>
+          <option value="行政">行政办公</option>
+          <option value="税费">税费支出</option>
+          <option value="其他">其他支出</option>
+        </select>
+        <button class="btn btn-primary" onclick="addExpense()">+ 添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Tables -->
+  <div class="main-grid">
+    <div class="panel">
+      <h2>📋 收入明细</h2>
+      <div class="table-wrap" id="incomeTableWrap">
+        <div class="empty-state"><div class="big">📭</div>暂无收入记录</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>📋 支出明细</h2>
+      <div class="table-wrap" id="expenseTableWrap">
+        <div class="empty-state"><div class="big">📭</div>暂无支出记录</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-grid">
+    <div class="chart-container">
+      <h3>📊 支出类别占比</h3>
+      <canvas id="expenseChart"></canvas>
+    </div>
+    <div class="chart-container">
+      <h3>📊 收入类别占比</h3>
+      <canvas id="incomeChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Smart Suggestions -->
+  <div class="suggestions-panel" id="suggestionsPanel">
+    <h2>🧠 智能分析与建议</h2>
+    <div id="suggestionsContent">
+      <div class="empty-state"><div class="big">🔍</div>添加收入和支出数据后，系统会自动分析并给出优化建议</div>
+    </div>
+  </div>
+</div>
+
+<!-- Report Modal -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal">
+    <button class="close" onclick="closeReport()">✕</button>
+    <h2>📊 财务分析报告</h2>
+    <div id="reportContent"></div>
+    <button class="btn btn-primary" style="margin-top:16px;width:100%;" onclick="printReport()">🖨️ 打印报告</button>
+  </div>
+</div>
+
+<script>
+// --- Data Store ---
+const STORAGE_KEY = 'profit_calc_data';
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : { income: [], expense: [] };
+  } catch { return { income: [], expense: [] }; }
+}
+
+function saveData(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+let data = loadData();
+
+// --- Add entries ---
+function addIncome() {
+  const desc = document.getElementById('incomeDesc').value.trim();
+  const amount = parseFloat(document.getElementById('incomeAmount').value);
+  const category = document.getElementById('incomeCat').value;
+
+  if (!desc) { alert('请输入收入描述'); return; }
+  if (!amount || amount <= 0) { alert('请输入有效金额'); return; }
+  if (!category) { alert('请选择类别'); return; }
+
+  data.income.push({
+    id: Date.now(),
+    desc,
+    amount,
+    category,
+    date: new Date().toISOString().split('T')[0]
+  });
+  saveData(data);
+
+  document.getElementById('incomeDesc').value = '';
+  document.getElementById('incomeAmount').value = '';
+  document.getElementById('incomeCat').value = '';
+  refreshAll();
+}
+
+function addExpense() {
+  const desc = document.getElementById('expenseDesc').value.trim();
+  const amount = parseFloat(document.getElementById('expenseAmount').value);
+  const category = document.getElementById('expenseCat').value;
+
+  if (!desc) { alert('请输入支出描述'); return; }
+  if (!amount || amount <= 0) { alert('请输入有效金额'); return; }
+  if (!category) { alert('请选择类别'); return; }
+
+  data.expense.push({
+    id: Date.now(),
+    desc,
+    amount,
+    category,
+    date: new Date().toISOString().split('T')[0]
+  });
+  saveData(data);
+
+  document.getElementById('expenseDesc').value = '';
+  document.getElementById('expenseAmount').value = '';
+  document.getElementById('expenseCat').value = '';
+  refreshAll();
+}
+
+function deleteEntry(type, id) {
+  if (type === 'income') {
+    data.income = data.income.filter(e => e.id !== id);
+  } else {
+    data.expense = data.expense.filter(e => e.id !== id);
+  }
+  saveData(data);
+  refreshAll();
+}
+
+// --- Calculations ---
+function calcTotals() {
+  const totalIncome = data.income.reduce((s, e) => s + e.amount, 0);
+  const totalExpense = data.expense.reduce((s, e) => s + e.amount, 0);
+  const netProfit = totalIncome - totalExpense;
+  const margin = totalIncome > 0 ? (netProfit / totalIncome * 100) : 0;
+  return { totalIncome, totalExpense, netProfit, margin };
+}
+
+function formatMoney(n) {
+  const abs = Math.abs(n);
+  if (abs >= 10000) {
+    return (n >= 0 ? '¥' : '-¥') + (abs / 10000).toFixed(2) + '万';
+  }
+  return (n >= 0 ? '¥' : '-¥') + abs.toFixed(2);
+}
+
+// --- Render ---
+function renderTables() {
+  // Income table
+  const incWrap = document.getElementById('incomeTableWrap');
+  if (data.income.length === 0) {
+    incWrap.innerHTML = '<div class="empty-state"><div class="big">📭</div>暂无收入记录</div>';
+  } else {
+    let html = '<table><thead><tr><th>日期</th><th>描述</th><th>类别</th><th>金额</th><th>操作</th></tr></thead><tbody>';
+    [...data.income].reverse().forEach(e => {
+      html += `<tr>
+        <td>${e.date}</td>
+        <td>${esc(e.desc)}</td>
+        <td><span class="tag tag-income">${esc(e.category)}</span></td>
+        <td style="color:var(--income)">+¥${e.amount.toFixed(2)}</td>
+        <td><button class="delete-btn" onclick="deleteEntry('income',${e.id})">🗑</button></td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    incWrap.innerHTML = html;
+  }
+
+  // Expense table
+  const expWrap = document.getElementById('expenseTableWrap');
+  if (data.expense.length === 0) {
+    expWrap.innerHTML = '<div class="empty-state"><div class="big">📭</div>暂无支出记录</div>';
+  } else {
+    let html = '<table><thead><tr><th>日期</th><th>描述</th><th>类别</th><th>金额</th><th>操作</th></tr></thead><tbody>';
+    [...data.expense].reverse().forEach(e => {
+      html += `<tr>
+        <td>${e.date}</td>
+        <td>${esc(e.desc)}</td>
+        <td><span class="tag tag-expense">${esc(e.category)}</span></td>
+        <td style="color:var(--expense)">-¥${e.amount.toFixed(2)}</td>
+        <td><button class="delete-btn" onclick="deleteEntry('expense',${e.id})">🗑</button></td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    expWrap.innerHTML = html;
+  }
+}
+
+function esc(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+function renderSummary() {
+  const { totalIncome, totalExpense, netProfit, margin } = calcTotals();
+  document.getElementById('totalIncome').textContent = formatMoney(totalIncome);
+  document.getElementById('totalExpense').textContent = formatMoney(totalExpense);
+  document.getElementById('incomeCount').textContent = data.income.length + ' 条记录';
+  document.getElementById('expenseCount').textContent = data.expense.length + ' 条记录';
+
+  const profitEl = document.getElementById('netProfit');
+  profitEl.textContent = formatMoney(netProfit);
+  profitEl.className = 'value ' + (netProfit >= 0 ? 'profit-positive' : 'profit-negative');
+
+  const marginEl = document.getElementById('profitMargin');
+  marginEl.textContent = margin.toFixed(1) + '%';
+  marginEl.className = 'value ' + (margin >= 0 ? 'profit-positive' : 'profit-negative');
+
+  document.getElementById('profitTrend').textContent = netProfit >= 0 ? '✅ 盈利状态' : '⚠️ 亏损状态';
+  document.getElementById('marginHealth').textContent =
+    margin >= 30 ? '🟢 非常健康' :
+    margin >= 15 ? '🟡 一般健康' :
+    margin >= 5 ? '🟠 需要关注' :
+    margin >= 0 ? '🔴 利润率过低' : '🔴 处于亏损';
+}
+
+function renderCharts() {
+  drawPieChart('expenseChart', data.expense, ['#f97316','#ef4444','#f59e0b','#8b5cf6','#06b6d4','#22c55e','#ec4899','#64748b']);
+  drawPieChart('incomeChart', data.income, ['#06b6d4','#22c55e','#8b5cf6','#64748b']);
+}
+
+function drawPieChart(canvasId, entries, colors) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.parentElement.clientWidth - 40;
+  const size = Math.min(w, 250);
+  canvas.width = size * dpr;
+  canvas.height = size * dpr;
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+  ctx.scale(dpr, dpr);
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const radius = size / 2 - 40;
+
+  ctx.clearRect(0, 0, size, size);
+
+  // Aggregate by category
+  const catMap = {};
+  entries.forEach(e => {
+    catMap[e.category] = (catMap[e.category] || 0) + e.amount;
+  });
+  const cats = Object.entries(catMap);
+  const total = cats.reduce((s, [,v]) => s + v, 0);
+
+  if (total === 0) {
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('暂无数据', cx, cy);
+    return;
+  }
+
+  let angle = -Math.PI / 2;
+  cats.forEach(([name, val], i) => {
+    const slice = (val / total) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, angle, angle + slice);
+    ctx.closePath();
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.fill();
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Label
+    const midAngle = angle + slice / 2;
+    const lx = cx + Math.cos(midAngle) * (radius * 0.65);
+    const ly = cy + Math.sin(midAngle) * (radius * 0.65);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    const pct = ((val / total) * 100).toFixed(1);
+    if (pct > 5) {
+      ctx.fillText(pct + '%', lx, ly);
+    }
+
+    angle += slice;
+  });
+
+  // Legend
+  ctx.textAlign = 'start';
+  let ly = size - 20;
+  cats.forEach(([name, val], i) => {
+    const lx = 10 + (i % 3) * (size / 3);
+    if (i % 3 === 0 && i > 0) ly += 18;
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.fillRect(lx, ly - 8, 10, 10);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '11px sans-serif';
+    ctx.fillText(name, lx + 14, ly);
+    if (ly > size - 10) ly = size - 20;
+  });
+}
+
+function generateSuggestions() {
+  const { totalIncome, totalExpense, netProfit, margin } = calcTotals();
+  const suggestions = [];
+
+  if (data.income.length === 0 && data.expense.length === 0) {
+    return [];
+  }
+
+  // Category analysis
+  const catExpense = {};
+  data.expense.forEach(e => {
+    catExpense[e.category] = (catExpense[e.category] || 0) + e.amount;
+  });
+
+  const catIncome = {};
+  data.income.forEach(e => {
+    catIncome[e.category] = (catIncome[e.category] || 0) + e.amount;
+  });
+
+  // 1. Overall profit analysis
+  if (netProfit < 0) {
+    suggestions.push({
+      level: 'critical',
+      title: '🔴 当前处于亏损状态，需要立即采取措施',
+      detail: `净亏损 ${formatMoney(Math.abs(netProfit))}，利润率 ${margin.toFixed(1)}%。必须尽快削减不必要的开支或寻找新的收入来源。`,
+      impact: '建议立即审查各项支出，优先削减非核心成本。'
+    });
+  } else if (margin < 10) {
+    suggestions.push({
+      level: 'warning',
+      title: '🟡 利润率偏低，建议优化成本结构',
+      detail: `当前利润率仅 ${margin.toFixed(1)}%，低于健康水平（建议 >15%）。`,
+      impact: `若利润率提升至 15%，净利润可达 ${formatMoney(totalIncome * 0.15)}。`
+    });
+  } else {
+    suggestions.push({
+      level: 'positive',
+      title: '🟢 整体利润状况良好',
+      detail: `利润率 ${margin.toFixed(1)}%，处于健康区间。继续保持并寻找增长机会。`,
+      impact: '关注成本结构变化，防止利润率下滑。'
+    });
+  }
+
+  // 2. Check largest expense category
+  const expenseEntries = Object.entries(catExpense).sort((a, b) => b[1] - a[1]);
+  if (expenseEntries.length > 0) {
+    const [topCat, topAmt] = expenseEntries[0];
+    const topPct = ((topAmt / totalExpense) * 100).toFixed(1);
+    if (topPct > 50) {
+      suggestions.push({
+        level: 'warning',
+        title: `⚠️ 「${topCat}」占总支出的 ${topPct}%，过于集中`,
+        detail: `${topCat}支出 ${formatMoney(topAmt)}，占比过高，存在单一依赖风险。`,
+        impact: `建议：① 对比市场均价，谈判供应商降价 ② 寻找替代方案或批量采购折扣 ③ 若降低此成本10%，可节省 ${formatMoney(topAmt * 0.1)}。`
+      });
+    }
+  }
+
+  // 3. Marketing ROI
+  const marketingExp = catExpense['营销'] || 0;
+  const salesIncome = catIncome['销售'] || 0;
+  if (marketingExp > 0 && totalIncome > 0) {
+    const roi = salesIncome / marketingExp;
+    if (roi < 2) {
+      suggestions.push({
+        level: 'warning',
+        title: '📢 营销投入回报比(ROI)偏低',
+        detail: `营销支出 ${formatMoney(marketingExp)}，销售收入 ${formatMoney(salesIncome)}，ROI 仅 ${roi.toFixed(1)}:1（建议 >3:1）。`,
+        impact: '建议：① 聚焦高转化渠道，削减低效渠道 ② 优化广告投放策略 ③ 加强口碑营销和自然流量。'
+      });
+    } else if (roi > 5) {
+      suggestions.push({
+        level: 'positive',
+        title: '📢 营销投资回报率优秀',
+        detail: `营销 ROI 达到 ${roi.toFixed(1)}:1，处于优秀水平。`,
+        impact: '可适度加大营销预算，扩大市场份额。'
+      });
+    }
+  }
+
+  // 4. Labor cost check
+  const laborExp = catExpense['人力'] || 0;
+  if (totalExpense > 0) {
+    const laborPct = laborExp / totalExpense * 100;
+    if (laborPct > 40) {
+      suggestions.push({
+        level: 'warning',
+        title: '👥 人力成本占比偏高',
+        detail: `人力成本 ${formatMoney(laborExp)}，占总支出的 ${laborPct.toFixed(1)}%。`,
+        impact: '建议：① 评估自动化可行性 ② 优化人员结构 ③ 考虑外包非核心业务 ④ 引入绩效激励提高人效。'
+      });
+    }
+  }
+
+  // 5. Raw material cost
+  const rawMatCost = catExpense['原材料'] || 0;
+  if (totalIncome > 0) {
+    const rawPct = rawMatCost / totalIncome * 100;
+    if (rawPct > 60) {
+      suggestions.push({
+        level: 'critical',
+        title: '📦 原材料成本占收入比过高',
+        detail: `原材料成本占收入的 ${rawPct.toFixed(1)}%（建议 <50%），严重压缩利润空间。`,
+        impact: `建议：① 寻找更具性价比的供应商 ② 批量采购获取折扣 ③ 优化生产工艺减少浪费 ④ 提高产品定价。每降低5%原材料成本，利润可增 ${formatMoney(rawMatCost * 0.05)}。`
+      });
+    }
+  }
+
+  // 6. Revenue diversification
+  const incomeSources = Object.keys(catIncome).length;
+  if (incomeSources <= 1 && totalIncome > 0) {
+    suggestions.push({
+      level: 'warning',
+      title: '🎯 收入来源单一，抗风险能力弱',
+      detail: `当前仅 ${incomeSources} 个收入来源，一旦该渠道受影响，整体业务将面临严重冲击。`,
+      impact: '建议：① 开发新产品或服务线 ② 拓展新客户群体 ③ 探索被动收入可能。'
+    });
+  }
+
+  // 7. High overhead
+  const adminExp = catExpense['行政'] || 0;
+  const rentExp = catExpense['租金'] || 0;
+  const overhead = adminExp + rentExp;
+  if (totalExpense > 0 && overhead / totalExpense > 0.25) {
+    suggestions.push({
+      level: 'warning',
+      title: '🏢 管理费用偏高',
+      detail: `行政及租金支出 ${formatMoney(overhead)}，占总支出的 ${(overhead / totalExpense * 100).toFixed(1)}%。`,
+      impact: '建议：① 评估远程办公可能性 ② 精简行政流程 ③ 对比周边办公场地租金。'
+    });
+  }
+
+  // 8. Positive findings
+  if (margin > 30 && totalIncome > 0) {
+    suggestions.push({
+      level: 'positive',
+      title: '🏆 盈利能力强劲',
+      detail: `利润率 ${margin.toFixed(1)}%，远超行业平均水平。你的商业模式具有较强竞争力。`,
+      impact: '建议将利润再投资于研发和市场扩张，巩固竞争优势。'
+    });
+  }
+
+  return suggestions;
+}
+
+function renderSuggestions() {
+  const suggestions = generateSuggestions();
+  const container = document.getElementById('suggestionsContent');
+
+  if (suggestions.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="big">🔍</div>添加收入和支出数据后，系统会自动分析并给出优化建议</div>';
+    return;
+  }
+
+  container.innerHTML = suggestions.map(s => `
+    <div class="suggestion ${s.level}">
+      <div class="s-title">${s.title}</div>
+      <div class="s-detail">${s.detail}</div>
+      <div class="s-impact">💡 ${s.impact}</div>
+    </div>
+  `).join('');
+}
+
+// --- Report ---
+function showReport() {
+  const { totalIncome, totalExpense, netProfit, margin } = calcTotals();
+  const suggestions = generateSuggestions();
+
+  if (data.income.length === 0 && data.expense.length === 0) {
+    alert('请先添加收入和支出数据');
+    return;
+  }
+
+  let report = `
+    <h3>📈 财务概览</h3>
+    <table style="width:100%;margin-bottom:20px;">
+      <tr><td>总收入</td><td style="color:var(--income);text-align:right;">${formatMoney(totalIncome)}</td></tr>
+      <tr><td>总支出</td><td style="color:var(--expense);text-align:right;">${formatMoney(totalExpense)}</td></tr>
+      <tr><td>净利润</td><td style="color:${netProfit>=0?'var(--profit)':'var(--loss)'};text-align:right;font-weight:700;">${formatMoney(netProfit)}</td></tr>
+      <tr><td>利润率</td><td style="text-align:right;font-weight:700;">${margin.toFixed(1)}%</td></tr>
+      <tr><td>收入条目</td><td style="text-align:right;">${data.income.length} 条</td></tr>
+      <tr><td>支出条目</td><td style="text-align:right;">${data.expense.length} 条</td></tr>
+    </table>
+
+    <h3>📋 支出明细 TOP5</h3>
+    <table style="width:100%;margin-bottom:20px;">
+  `;
+
+  const sortedExp = [...data.expense].sort((a,b) => b.amount - a.amount).slice(0, 5);
+  sortedExp.forEach(e => {
+    report += `<tr><td>${esc(e.desc)}</td><td style="text-align:right;">-¥${e.amount.toFixed(2)}</td></tr>`;
+  });
+  report += '</table>';
+
+  report += '<h3>🧠 优化建议</h3>';
+  suggestions.forEach(s => {
+    report += `
+      <div class="suggestion ${s.level}" style="margin-bottom:8px;">
+        <strong>${s.title}</strong><br>
+        <span style="color:var(--muted);">${s.detail}</span><br>
+        <span style="color:var(--profit);">💡 ${s.impact}</span>
+      </div>
+    `;
+  });
+
+  document.getElementById('reportContent').innerHTML = report;
+  document.getElementById('reportModal').classList.add('active');
+}
+
+function closeReport() {
+  document.getElementById('reportModal').classList.remove('active');
+}
+
+function printReport() {
+  window.print();
+}
+
+function resetData() {
+  if (confirm('确定要清除所有数据吗？此操作不可恢复。')) {
+    data = { income: [], expense: [] };
+    saveData(data);
+    refreshAll();
+  }
+}
+
+// --- Refresh ---
+function refreshAll() {
+  renderSummary();
+  renderTables();
+  renderCharts();
+  renderSuggestions();
+}
+
+// --- Keyboard shortcuts ---
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'i') {
+    e.preventDefault();
+    document.getElementById('incomeDesc').focus();
+  }
+  if (e.ctrlKey && e.key === 'e') {
+    e.preventDefault();
+    document.getElementById('expenseDesc').focus();
+  }
+});
+
+// --- Demo data ---
+function loadDemo() {
+  if (data.income.length === 0 && data.expense.length === 0) {
+    data.income = [
+      { id: 1, desc: '产品A批量销售', amount: 85000, category: '销售', date: '2026-05-01' },
+      { id: 2, desc: '咨询服务费', amount: 32000, category: '服务', date: '2026-05-03' },
+      { id: 3, desc: '产品B零售', amount: 48000, category: '销售', date: '2026-05-05' },
+      { id: 4, desc: '股票分红', amount: 8000, category: '投资', date: '2026-05-08' },
+      { id: 5, desc: '产品A追加订单', amount: 55000, category: '销售', date: '2026-05-10' },
+      { id: 6, desc: '技术支持服务', amount: 15000, category: '服务', date: '2026-05-12' },
+    ];
+    data.expense = [
+      { id: 11, desc: '电子元件采购', amount: 38000, category: '原材料', date: '2026-05-02' },
+      { id: 12, desc: '员工工资', amount: 45000, category: '人力', date: '2026-05-05' },
+      { id: 13, desc: '办公室租金', amount: 12000, category: '租金', date: '2026-05-01' },
+      { id: 14, desc: '百度推广', amount: 18000, category: '营销', date: '2026-05-06' },
+      { id: 15, desc: '快递物流', amount: 6500, category: '物流', date: '2026-05-08' },
+      { id: 16, desc: '包装材料', amount: 8500, category: '原材料', date: '2026-05-10' },
+      { id: 17, desc: '办公耗材', amount: 3200, category: '行政', date: '2026-05-12' },
+      { id: 18, desc: '增值税', amount: 9500, category: '税费', date: '2026-05-15' },
+    ];
+    saveData(data);
+  }
+}
+
+// --- Init ---
+loadDemo();
+refreshAll();
+window.addEventListener('resize', renderCharts);
+</script>
+</body>
+</html>
