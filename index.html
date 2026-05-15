@@ -384,10 +384,10 @@
   <div class="main-grid">
     <div class="panel">
       <h3>📝 输入参数</h3>
-      <div class="form-row"><label style="width:140px;">固定成本 (元)</label><input type="number" id="beFixedCost" value="50000"></div>
-      <div class="form-row"><label style="width:140px;">单位售价 (元)</label><input type="number" id="bePrice" value="200"></div>
-      <div class="form-row"><label style="width:140px;">单位变动成本 (元)</label><input type="number" id="beVarCost" value="80"></div>
-      <div class="form-row"><label style="width:140px;">目标利润 (元)</label><input type="number" id="beTargetProfit" value="30000"></div>
+      <div class="form-row"><label style="width:140px;">固定成本 (元)</label><input type="number" id="beFixedCost" value="0" placeholder="如：50000"></div>
+      <div class="form-row"><label style="width:140px;">单位售价 (元)</label><input type="number" id="bePrice" value="0" placeholder="如：200"></div>
+      <div class="form-row"><label style="width:140px;">单位变动成本 (元)</label><input type="number" id="beVarCost" value="0" placeholder="如：80"></div>
+      <div class="form-row"><label style="width:140px;">目标利润 (元)</label><input type="number" id="beTargetProfit" value="0" placeholder="如：30000"></div>
       <button class="btn btn-primary mt" onclick="calcBreakEven()">计算</button>
       <button class="btn btn-sm mt" onclick="autoFillBE()">用实际数据填充</button>
     </div>
@@ -680,7 +680,10 @@ function renderGoals() {
   }).join('');
 }
 function monthsRemaining(deadline) {
-  const [y,m] = deadline.split('-').map(Number);
+  if (!deadline) return 12;
+  const parts = deadline.split('-').map(Number);
+  if (parts.length<2 || isNaN(parts[0]) || isNaN(parts[1])) return 12;
+  const [y,m] = parts;
   const now = new Date();
   return Math.max(1, (y-now.getFullYear())*12 + (m-now.getMonth()-1));
 }
@@ -745,10 +748,11 @@ function renderDashboardCharts() { renderTrend(); renderBar(); renderExpPie(); r
 function renderTrend() {
   const chart = getChart('chartTrend'); if (!chart) return;
   const months = {};
+  const incomeIds = new Set(data.income.map(i=>i.id));
   [...data.income,...data.expense].forEach(e=>{
     const m = e.date.substring(0,7);
     if (!months[m]) months[m]={inc:0,exp:0};
-    if (data.income.find(i=>i.id===e.id)) months[m].inc+=e.amount; else months[m].exp+=e.amount;
+    if (incomeIds.has(e.id)) months[m].inc+=e.amount; else months[m].exp+=e.amount;
   });
   const sorted = Object.entries(months).sort();
   if (!sorted.length) { chart.setOption({ title: { text:'暂无数据', left:'center', top:'center', textStyle:{color:'#94a3b8',fontSize:14} } }); return; }
@@ -810,11 +814,15 @@ function renderGauge() {
 // ========== BREAK-EVEN ==========
 function autoFillBE() {
   const totalExp = data.expense.reduce((s,e)=>s+e.amount,0);
+  const totalInc = data.income.reduce((s,e)=>s+e.amount,0);
   const matCost = data.expense.filter(e=>e.category==='原材料').reduce((s,e)=>s+e.amount,0);
   const rentCost = data.expense.filter(e=>e.category==='租金').reduce((s,e)=>s+e.amount,0);
   const laborCost = data.expense.filter(e=>e.category==='人力').reduce((s,e)=>s+e.amount,0);
+  const netP = totalInc - totalExp;
   document.getElementById('beFixedCost').value = Math.round(rentCost + laborCost*0.7).toString();
-  document.getElementById('beVarCost').value = totalExp > 0 ? Math.round(matCost / Math.max(1, data.income.length) * 1.5).toString() : '80';
+  document.getElementById('beVarCost').value = totalExp > 0 ? Math.round(matCost / Math.max(1, data.income.length) * 1.5).toString() : '0';
+  document.getElementById('bePrice').value = data.income.length > 0 ? Math.round(totalInc / data.income.length * 1.3).toString() : '0';
+  document.getElementById('beTargetProfit').value = netP > 0 ? Math.round(netP * 1.2).toString() : '0';
   calcBreakEven();
 }
 
@@ -841,9 +849,14 @@ function calcBreakEven() {
   `;
 
   const chart = getChart('chartBreakEven'); if (!chart) return;
-  const maxU = Math.max(beUnits*2, tgtUnits*1.5, 1000);
+  if (!isFinite(beUnits) || beUnits<=0 || price<=0) {
+    chart.setOption({ title: { text:'请先输入有效的售价和成本', left:'center', top:'center', textStyle:{color:'#94a3b8',fontSize:14} } });
+    return;
+  }
+  const maxU = Math.min(Math.max(beUnits*2, tgtUnits*1.5, 1000), 100000);
+  const step = Math.max(Math.ceil(maxU/50), 1);
   const us=[], rev=[], tc=[], fcLine=[];
-  for (let i=0; i<=maxU; i+=Math.ceil(maxU/50)) { us.push(i); rev.push(i*price); tc.push(fc+i*vc); fcLine.push(fc); }
+  for (let i=0; i<=maxU; i+=step) { us.push(i); rev.push(i*price); tc.push(fc+i*vc); fcLine.push(fc); }
   chart.setOption({
     tooltip:{trigger:'axis'}, legend:{data:['收入','总成本','固定成本'],textStyle:{color:'#64748b'}},
     grid:{left:70,right:20,top:30,bottom:40},
@@ -990,8 +1003,14 @@ function clearAll() {
   if (confirm('确定清空所有数据？此操作不可恢复。')) {
     data={income:[],expense:[],templates:[],goals:[],scenarios:[]};
     save();
-    // 同时重置盈亏平衡输入
+    // 重置盈亏平衡输入
     ['beFixedCost','bePrice','beVarCost','beTargetProfit'].forEach(id => document.getElementById(id).value = '0');
+    // 重置情景滑块
+    ['scIncome','scMaterial','scLabor','scMarketing','scOther'].forEach(id => document.getElementById(id).value = 0);
+    ['scIncomeLabel','scMaterialLabel','scLaborLabel','scMarketingLabel','scOtherLabel'].forEach(id => document.getElementById(id).textContent = '+0%');
+    // 清除所有图表
+    Object.values(chartInstances).forEach(c => { try { c.dispose(); } catch {} });
+    for (const k in chartInstances) delete chartInstances[k];
     refreshAll();
     alert('已清空，从零开始！');
   }
