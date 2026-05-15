@@ -267,6 +267,7 @@
     <button class="btn btn-sm" onclick="exportCSV()">导出 CSV</button>
     <button class="btn btn-sm" onclick="importCSV()">导入 CSV</button>
     <button class="btn btn-sm" onclick="backupData()">备份</button>
+    <button class="btn btn-sm btn-danger" onclick="clearAll()">🗑 清空</button>
   </div>
 </div>
 
@@ -449,7 +450,7 @@
 
 <script>
 // ========== DATA STORE ==========
-const STORAGE_KEY = 'profit_calc_v3';
+const STORAGE_KEY = 'profit_calc_v4';
 function loadData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -985,8 +986,13 @@ function backupData() {
   a.href=u;a.download='财务备份_'+today()+'.json';a.click();URL.revokeObjectURL(u);
 }
 
-function resetData() {
-  if (confirm('确定清除所有数据？此操作不可恢复。')) { data={income:[],expense:[],templates:[],goals:[],scenarios:[]}; save(); refreshAll(); }
+function clearAll() {
+  if (confirm('确定清空所有数据？此操作不可恢复。')) {
+    data={income:[],expense:[],templates:[],goals:[],scenarios:[]};
+    save();
+    refreshAll();
+    alert('已清空，从零开始！');
+  }
 }
 
 // ========== REFRESH ALL ==========
