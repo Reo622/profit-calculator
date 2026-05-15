@@ -1,3 +1,2 @@
 @echo off
-cd /d "%~dp0"
-start "" "index.html"
+start "" "%~dp0index.html"
